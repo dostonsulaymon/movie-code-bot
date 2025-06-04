@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "joined_at" SET DEFAULT CURRENT_TIMESTAMP;

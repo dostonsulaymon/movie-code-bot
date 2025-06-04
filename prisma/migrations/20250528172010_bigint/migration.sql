@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "Users" ALTER COLUMN "telegramId" SET DATA TYPE BIGINT;

@@ -31,6 +31,7 @@ export class BotService implements OnModuleInit {
 
   private async handleStart(ctx: Context): Promise<void> {
     await this.createUserIfNotExist(ctx);
+    await this.showIntro(ctx);
   }
 
   private async createUserIfNotExist(ctx: Context): Promise<void> {
@@ -41,23 +42,21 @@ export class BotService implements OnModuleInit {
       return;
     }
 
-    const user = await this.databaseService.users.findFirst({
+    const user = await this.databaseService.user.findFirst({
       where: {
         telegramId: telegramId,
       },
     });
     if (!user) {
-      const newUser = await this.databaseService.users.create({
+      const newUser = await this.databaseService.user.create({
         data: {
           telegramId: telegramId,
           username: username,
         },
       });
-
-      logger.info(`New user created  ${newUser}`);
     } else if (username && user.username !== username) {
       user.username = username;
-      await this.databaseService.users.update({
+      await this.databaseService.user.update({
         where: {
           telegramId: telegramId,
         },
@@ -67,8 +66,18 @@ export class BotService implements OnModuleInit {
       });
     }
   }
+  private async showIntro(ctx: Context) {
+    const firstName = ctx.from.first_name;
 
-  // Method to register broadcast command - called by BroadcastHandler
+    const message =
+      `👋 Assalomu alaykum, <b>${firstName}</b>! Botimizga xush kelibsiz!\n\n` +
+      `📥 Davom etish uchun kino kodini yuboring.`;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+    });
+  }
+
   registerBroadcastCommand(handler: (ctx: Context) => Promise<void>): void {
     this.bot.command('broadcast', handler);
   }

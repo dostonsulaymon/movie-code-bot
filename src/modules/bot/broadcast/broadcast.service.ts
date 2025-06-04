@@ -30,7 +30,7 @@ export class BroadcastService {
       logger.warn(`Unauthorized broadcast attempt by user ${senderId}`);
     }
 
-    const users = await this.databaseService.users.findMany();
+    const users = await this.databaseService.user.findMany();
 
     let successCount = 0;
     let failedCount = 0;
