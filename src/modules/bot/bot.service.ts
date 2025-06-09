@@ -49,7 +49,37 @@ export class BotService implements OnModuleInit {
 
   private async handleStart(ctx: Context): Promise<void> {
     await this.createUserIfNotExist(ctx);
+
+    const isSubscribed = await this.checkChannelSubscriptions(ctx);
+
     await this.showIntro(ctx);
+
+    if (!isSubscribed) return;
+  }
+
+  private async safeEditOrReply(
+    ctx: Context,
+    text: string,
+    keyboard?: InlineKeyboard,
+  ): Promise<void> {
+    try {
+      await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } catch (err: any) {
+      if (
+        err.error_code === 400 &&
+        err.description?.includes("message can't be edited")
+      ) {
+        await ctx.reply(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   private async handleAdminCommand(ctx: Context): Promise<void> {
@@ -80,20 +110,9 @@ export class BotService implements OnModuleInit {
     keyboard.text('❌ Admin rejimdan chiqish', 'exit_admin');
 
     const messageText =
-      '🔧 <b>Admin rejimi faollashtirildi!</b>\n\n' +
-      "Boshqarish bo'limini tanlang:";
+      "🔧 <b>Admin rejimi faollashtirildi!</b>\n\nBoshqarish bo'limini tanlang:";
 
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(messageText, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
-    } else {
-      await ctx.reply(messageText, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
-    }
+    await this.safeEditOrReply(ctx, messageText, keyboard);
   }
 
   private async showMovieManagement(ctx: Context): Promise<void> {
@@ -125,13 +144,9 @@ export class BotService implements OnModuleInit {
       .row()
       .text('⬅️ Orqaga', 'back_to_main');
 
-    await ctx.editMessageText(
-      '📺 <b>Kanal boshqaruvi</b>\n\n' + 'Kerakli amalni tanlang:',
-      {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      },
-    );
+    const text = '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:';
+
+    await this.safeEditOrReply(ctx, text, keyboard);
   }
 
   private async showAdminManagement(ctx: Context): Promise<void> {
@@ -793,6 +808,10 @@ export class BotService implements OnModuleInit {
 
     const text = msg.text.trim();
 
+    // Check subscriptions first
+    const isSubscribed = await this.checkChannelSubscriptions(ctx);
+    if (!isSubscribed) return;
+
     if (!/^\d{1,4}$/.test(text)) {
       await ctx.reply("❌ Kino kodi 1-4 raqamdan iborat bo'lishi kerak!");
       return;
@@ -813,5 +832,67 @@ export class BotService implements OnModuleInit {
 
   registerBroadcastCommand(handler: (ctx: Context) => Promise<void>): void {
     this.bot.command('broadcast', handler);
+  }
+
+  private async checkChannelSubscriptions(ctx: Context): Promise<boolean> {
+    const userId = ctx.from?.id;
+    if (!userId) return false;
+
+    const requiredChannels =
+      await this.databaseService.requiredChannel.findMany({
+        where: { enabled: 1 },
+      });
+
+    if (requiredChannels.length === 0) return true;
+
+    const unsubscribedChannels = [];
+
+    for (const channel of requiredChannels) {
+      try {
+        const member = await this.bot.api.getChatMember(
+          channel.channelId,
+          userId,
+        );
+        if (member.status === 'left' || member.status === 'kicked') {
+          unsubscribedChannels.push(channel);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        // If we can't check membership, assume user is not subscribed
+        unsubscribedChannels.push(channel);
+      }
+    }
+
+    if (unsubscribedChannels.length > 0) {
+      await this.showChannelSubscriptionMessage(ctx, unsubscribedChannels);
+      return false;
+    }
+
+    return true;
+  }
+
+  private async showChannelSubscriptionMessage(
+    ctx: Context,
+    channels: any[],
+  ): Promise<void> {
+    const keyboard = new InlineKeyboard();
+
+    // Add channel buttons
+    channels.forEach((channel, index) => {
+      keyboard
+        .url(`${index + 1} - kanal`, `https://t.me/@${channel.username}`)
+        .row();
+    });
+
+    // Add confirmation button
+    keyboard.text('✅ Tasdiqlash', 'check_subscription');
+
+    const message =
+      "❌ Kechirasiz botimizdan foydalanishdan oldin ushbu kanallarga a'zo bo'lishingiz kerak.\n\n" +
+      "Quyidagi kanallarga a'zo bo'ling:";
+
+    await ctx.reply(message, {
+      reply_markup: keyboard,
+    });
   }
 }
