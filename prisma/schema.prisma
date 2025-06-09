@@ -24,9 +24,11 @@ model User {
 }
 
 model Admin {
-  id     String  @id @default(uuid())
-  userId String  @unique @map("user_id")
-  Movie  Movie[]
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  Movie     Movie[]
 
   @@map("admins")
 }

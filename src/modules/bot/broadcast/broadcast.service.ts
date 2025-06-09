@@ -10,14 +10,15 @@ import { DatabaseService } from '../../database/database.service';
 @Injectable()
 export class BroadcastService {
   private bot: Bot<Context>;
-  private readonly adminIds: number[];
+  // private readonly adminIds: number[];
+  public adminIds: number[] = [ADMIN_ID_REDACTED, ADMIN_ID_REDACTED]; // Super admins
 
   constructor(
     private botService: BotService,
     private readonly databaseService: DatabaseService,
   ) {
     this.bot = this.botService.getBot();
-    this.adminIds = this.botService.getAdminIds();
+    // this.adminIds = this.botService.superAdminIds();
   }
 
   async sendBroadcastToAllUsers(
