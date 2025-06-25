@@ -650,11 +650,30 @@ export class BotService implements OnModuleInit {
     for (const channel of requiredChannels) {
       try {
         const member = await this.bot.api.getChatMember(channel.channelId, userId);
+
+        // Check if user is NOT subscribed (only left or kicked are truly unsubscribed)
         if (member.status === 'left' || member.status === 'kicked') {
           unsubscribedChannels.push(channel);
         }
+        // All other statuses (creator, administrator, member, restricted) are considered subscribed
+
       } catch (error) {
-        unsubscribedChannels.push(channel);
+        logger.error(`Error checking membership for channel ${channel.username}:`, error);
+
+        // More specific error handling
+        if (error.error_code === 400 && error.description?.includes('chat not found')) {
+          logger.error(`Channel ${channel.username} not found - may need to be removed from database`);
+          // Still treat as unsubscribed to prevent access
+          unsubscribedChannels.push(channel);
+        } else if (error.error_code === 400 && error.description?.includes('user not found')) {
+          // User might have privacy settings - treat as unsubscribed for safety
+          unsubscribedChannels.push(channel);
+        } else {
+          // For other errors (network, rate limit, etc.), give user benefit of doubt
+          // or implement retry logic
+          logger.warn(`API error checking subscription for ${channel.username}, skipping check`);
+          // Optionally: unsubscribedChannels.push(channel); for stricter checking
+        }
       }
     }
 
