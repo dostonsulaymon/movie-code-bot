@@ -22,7 +22,7 @@ export class BroadcastHandler implements OnModuleInit {
     const senderId = ctx.from?.id;
     const senderUsername = ctx.from?.username || 'unknown';
 
-    if (!this.botService.getAdminIds().includes(senderId)) {
+    if (!this.broadcastService.adminIds.includes(senderId)) {
       logger.warn('Broadcast command from unidentified sender');
       return;
     }
