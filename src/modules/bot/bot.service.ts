@@ -40,6 +40,10 @@ export class BotService implements OnModuleInit {
     this.bot.start().catch((err) => logger.error('Failed to start bot: ', err));
   }
 
+  registerBroadcastCommand(handler: (ctx: Context) => Promise<void>): void {
+    this.bot.command('broadcast', handler);
+  }
+
   private setupHandlers(): void {
     this.bot.command('start', this.handleStart.bind(this));
     this.bot.command('admin', this.handleAdminCommand.bind(this));
@@ -54,7 +58,11 @@ export class BotService implements OnModuleInit {
     if (!isSubscribed) return;
   }
 
-  private async safeReply(ctx: Context, text: string, keyboard?: InlineKeyboard): Promise<void> {
+  private async safeReply(
+    ctx: Context,
+    text: string,
+    keyboard?: InlineKeyboard,
+  ): Promise<void> {
     try {
       if (ctx.callbackQuery) {
         try {
@@ -63,7 +71,10 @@ export class BotService implements OnModuleInit {
             reply_markup: keyboard,
           });
         } catch (err: any) {
-          if (err.error_code === 400 && err.description?.includes("message can't be edited")) {
+          if (
+            err.error_code === 400 &&
+            err.description?.includes("message can't be edited")
+          ) {
             await ctx.reply(text, {
               parse_mode: 'HTML',
               reply_markup: keyboard,
@@ -80,7 +91,7 @@ export class BotService implements OnModuleInit {
       }
     } catch (error) {
       logger.error('Error in safeReply:', error);
-      await ctx.reply('❌ Xatolik yuz berdi. Qayta urinib ko\'ring.');
+      await ctx.reply("❌ Xatolik yuz berdi. Qayta urinib ko'ring.");
     }
   }
 
@@ -110,7 +121,11 @@ export class BotService implements OnModuleInit {
 
     keyboard.text('❌ Admin rejimdan chiqish', 'exit_admin');
 
-    await this.safeReply(ctx, "🔧 <b>Admin rejimi faollashtirildi!</b>\n\nBoshqarish bo'limini tanlang:", keyboard);
+    await this.safeReply(
+      ctx,
+      "🔧 <b>Admin rejimi faollashtirildi!</b>\n\nBoshqarish bo'limini tanlang:",
+      keyboard,
+    );
   }
 
   private getMenuKeyboard(type: string): InlineKeyboard {
@@ -138,7 +153,7 @@ export class BotService implements OnModuleInit {
         .row()
         .text("📋 Adminlar ro'yxati", 'list_admins')
         .row()
-        .text('⬅️ Orqaga', 'back_to_main')
+        .text('⬅️ Orqaga', 'back_to_main'),
     };
 
     return keyboards[type];
@@ -154,20 +169,49 @@ export class BotService implements OnModuleInit {
     const session = this.getOrCreateSession(userId);
 
     const actions = {
-      movie_management: () => this.safeReply(ctx, '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('movie')),
-      channel_management: () => this.safeReply(ctx, '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('channel')),
-      admin_management: () => this.isSuperAdmin(userId) ? this.safeReply(ctx, '👥 <b>Admin boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('admin')) : null,
+      movie_management: () =>
+        this.safeReply(
+          ctx,
+          '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('movie'),
+        ),
+      channel_management: () =>
+        this.safeReply(
+          ctx,
+          '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('channel'),
+        ),
+      admin_management: () =>
+        this.isSuperAdmin(userId)
+          ? this.safeReply(
+              ctx,
+              '👥 <b>Admin boshqaruvi</b>\n\nKerakli amalni tanlang:',
+              this.getMenuKeyboard('admin'),
+            )
+          : null,
       back_to_main: () => this.showMainAdminMenu(ctx),
-      add_movie: () => this.safeReply(ctx, "📹 <b>Kino qo'shish</b>\n\nIltimos kanaldan kinoni forward qiling yoki video/hujjat yuboring:"),
-      remove_movie: () => this.safeReply(ctx, "🗑 <b>Kino o'chirish</b>\n\nO'chirmoqchi bo'lgan kino kodini yuboring:"),
+      add_movie: () =>
+        this.safeReply(
+          ctx,
+          "📹 <b>Kino qo'shish</b>\n\nIltimos kanaldan kinoni forward qiling yoki video/hujjat yuboring:",
+        ),
+      remove_movie: () =>
+        this.safeReply(
+          ctx,
+          "🗑 <b>Kino o'chirish</b>\n\nO'chirmoqchi bo'lgan kino kodini yuboring:",
+        ),
       list_movies: () => this.handleListMovies(ctx),
       add_channel: () => this.handleAddChannelCallback(ctx, session),
       remove_channel: () => this.handleRemoveChannelCallback(ctx, session),
       list_channels: () => this.handleListChannels(ctx),
-      add_admin: () => this.isSuperAdmin(userId) ? this.handleAddAdminCallback(ctx, session) : null,
-      list_admins: () => this.isSuperAdmin(userId) ? this.handleListAdmins(ctx) : null,
+      add_admin: () =>
+        this.isSuperAdmin(userId)
+          ? this.handleAddAdminCallback(ctx, session)
+          : null,
+      list_admins: () =>
+        this.isSuperAdmin(userId) ? this.handleListAdmins(ctx) : null,
       exit_admin: () => this.handleExitAdminCallback(ctx, userId),
-      check_subscription: () => this.handleCheckSubscription(ctx)
+      check_subscription: () => this.handleCheckSubscription(ctx),
     };
 
     const action = actions[callbackData];
@@ -188,23 +232,39 @@ export class BotService implements OnModuleInit {
       return;
     }
 
-    const moviesList = '📋 <b>Oxirgi 10 ta kino:</b>\n\n' +
-      movies.map((movie, index) =>
-        `${index + 1}. <b>${movie.title}</b>\n   📟 Kod: <code>${movie.code}</code>\n   📅 Qo'shilgan: ${movie.createdAt.toLocaleDateString()}\n`
-      ).join('\n');
+    const moviesList =
+      '📋 <b>Oxirgi 10 ta kino:</b>\n\n' +
+      movies
+        .map(
+          (movie, index) =>
+            `${index + 1}. <b>${movie.title}</b>\n   📟 Kod: <code>${movie.code}</code>\n   📅 Qo'shilgan: ${movie.createdAt.toLocaleDateString()}\n`,
+        )
+        .join('\n');
 
     const keyboard = new InlineKeyboard().text('⬅️ Orqaga', 'movie_management');
     await this.safeReply(ctx, moviesList, keyboard);
   }
 
-  private async handleAddChannelCallback(ctx: Context, session: AdminSession): Promise<void> {
+  private async handleAddChannelCallback(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
     session.awaitingChannelInfo = true;
-    await this.safeReply(ctx, "📺 <b>Kanal qo'shish</b>\n\nKanal username'ini @ belgisisiz yuboring:\nMasalan: <code>mychannel</code>");
+    await this.safeReply(
+      ctx,
+      "📺 <b>Kanal qo'shish</b>\n\nKanal username'ini @ belgisisiz yuboring:\nMasalan: <code>mychannel</code>",
+    );
   }
 
-  private async handleRemoveChannelCallback(ctx: Context, session: AdminSession): Promise<void> {
+  private async handleRemoveChannelCallback(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
     session.awaitingChannelRemoval = true;
-    await this.safeReply(ctx, "🗑 <b>Kanal o'chirish</b>\n\nO'chirmoqchi bo'lgan kanal username'ini yuboring:");
+    await this.safeReply(
+      ctx,
+      "🗑 <b>Kanal o'chirish</b>\n\nO'chirmoqchi bo'lgan kanal username'ini yuboring:",
+    );
   }
 
   private async handleListChannels(ctx: Context): Promise<void> {
@@ -217,18 +277,31 @@ export class BotService implements OnModuleInit {
       return;
     }
 
-    const channelsList = '📋 <b>Majburiy kanallar:</b>\n\n' +
-      channels.map((channel, index) =>
-        `${index + 1}. @${channel.username}\n   🆔 ID: <code>${channel.channelId}</code>\n`
-      ).join('\n');
+    const channelsList =
+      '📋 <b>Majburiy kanallar:</b>\n\n' +
+      channels
+        .map(
+          (channel, index) =>
+            `${index + 1}. @${channel.username}\n   🆔 ID: <code>${channel.channelId}</code>\n`,
+        )
+        .join('\n');
 
-    const keyboard = new InlineKeyboard().text('⬅️ Orqaga', 'channel_management');
+    const keyboard = new InlineKeyboard().text(
+      '⬅️ Orqaga',
+      'channel_management',
+    );
     await this.safeReply(ctx, channelsList, keyboard);
   }
 
-  private async handleAddAdminCallback(ctx: Context, session: AdminSession): Promise<void> {
+  private async handleAddAdminCallback(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
     session.awaitingNewAdminId = true;
-    await this.safeReply(ctx, "👤 <b>Admin qo'shish</b>\n\nYangi admin bo'lishi kerak bo'lgan foydalanuvchi ID sini yuboring:");
+    await this.safeReply(
+      ctx,
+      "👤 <b>Admin qo'shish</b>\n\nYangi admin bo'lishi kerak bo'lgan foydalanuvchi ID sini yuboring:",
+    );
   }
 
   private async handleListAdmins(ctx: Context): Promise<void> {
@@ -237,21 +310,32 @@ export class BotService implements OnModuleInit {
       orderBy: { createdAt: 'desc' },
     });
 
-    let adminsList = "👥 <b>Adminlar ro'yxati:</b>\n\n🔱 <b>Super Adminlar:</b>\n" +
-      this.superAdminIds.map((id, index) => `${index + 1}. ID: <code>${id}</code>`).join('\n') + '\n\n';
+    let adminsList =
+      "👥 <b>Adminlar ro'yxati:</b>\n\n🔱 <b>Super Adminlar:</b>\n" +
+      this.superAdminIds
+        .map((id, index) => `${index + 1}. ID: <code>${id}</code>`)
+        .join('\n') +
+      '\n\n';
 
     if (admins.length > 0) {
-      adminsList += '👤 <b>Oddiy Adminlar:</b>\n' +
-        admins.map((admin, index) =>
-          `${index + 1}. ID: <code>${admin.userId}</code>\n   📅 Qo'shilgan: ${admin.createdAt.toLocaleDateString()}\n`
-        ).join('\n');
+      adminsList +=
+        '👤 <b>Oddiy Adminlar:</b>\n' +
+        admins
+          .map(
+            (admin, index) =>
+              `${index + 1}. ID: <code>${admin.userId}</code>\n   📅 Qo'shilgan: ${admin.createdAt.toLocaleDateString()}\n`,
+          )
+          .join('\n');
     }
 
     const keyboard = new InlineKeyboard().text('⬅️ Orqaga', 'admin_management');
     await this.safeReply(ctx, adminsList, keyboard);
   }
 
-  private async handleExitAdminCallback(ctx: Context, userId: number): Promise<void> {
+  private async handleExitAdminCallback(
+    ctx: Context,
+    userId: number,
+  ): Promise<void> {
     this.adminSessions.delete(userId);
     await this.safeReply(ctx, '❌ Admin rejimdan chiqdingiz!');
   }
@@ -259,7 +343,10 @@ export class BotService implements OnModuleInit {
   private async handleCheckSubscription(ctx: Context): Promise<void> {
     const isSubscribed = await this.checkChannelSubscriptions(ctx);
     if (isSubscribed) {
-      await this.safeReply(ctx, "✅ Barcha kanallarga obuna bo'ldingiz! Endi kino kodini yuboring.");
+      await this.safeReply(
+        ctx,
+        "✅ Barcha kanallarga obuna bo'ldingiz! Endi kino kodini yuboring.",
+      );
     }
   }
 
@@ -276,7 +363,10 @@ export class BotService implements OnModuleInit {
     }
   }
 
-  private async handleAdminMessage(ctx: Context, session: AdminSession): Promise<void> {
+  private async handleAdminMessage(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
     const msg = ctx.message;
 
     if (session.awaitingNewAdminId && msg.text) {
@@ -300,7 +390,11 @@ export class BotService implements OnModuleInit {
     }
 
     const forwardedFromChannelId = (msg as any).forward_from_chat?.id;
-    if (forwardedFromChannelId == this.sourceChannelIdUZ || msg.video || msg.document) {
+    if (
+      forwardedFromChannelId == this.sourceChannelIdUZ ||
+      msg.video ||
+      msg.document
+    ) {
       await this.processMovieUpload(ctx, session);
       return;
     }
@@ -310,10 +404,16 @@ export class BotService implements OnModuleInit {
       return;
     }
 
-    await ctx.reply("❌ Noto'g'ri format! Admin rejimdan chiqish uchun /admin buyrug'ini ishlating.");
+    await ctx.reply(
+      "❌ Noto'g'ri format! Admin rejimdan chiqish uchun /admin buyrug'ini ishlating.",
+    );
   }
 
-  private async processNewChannel(ctx: Context, username: string, session: AdminSession): Promise<void> {
+  private async processNewChannel(
+    ctx: Context,
+    username: string,
+    session: AdminSession,
+  ): Promise<void> {
     const cleanUsername = username.replace('@', '').trim();
 
     if (!cleanUsername) {
@@ -329,9 +429,10 @@ export class BotService implements OnModuleInit {
         return;
       }
 
-      const existingChannel = await this.databaseService.requiredChannel.findFirst({
-        where: { username: cleanUsername },
-      });
+      const existingChannel =
+        await this.databaseService.requiredChannel.findFirst({
+          where: { username: cleanUsername },
+        });
 
       if (existingChannel) {
         await ctx.reply("❌ Bu kanal allaqachon qo'shilgan!");
@@ -350,17 +451,29 @@ export class BotService implements OnModuleInit {
 
       await ctx.reply(
         `✅ Kanal muvaffaqiyatli qo'shildi!\n\n📺 Kanal: @${cleanUsername}\n🆔 ID: <code>${chat.id}</code>`,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML' },
       );
 
-      setTimeout(() => this.safeReply(ctx, '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('channel')), 1000);
+      setTimeout(
+        () =>
+          this.safeReply(
+            ctx,
+            '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:',
+            this.getMenuKeyboard('channel'),
+          ),
+        1000,
+      );
     } catch (error) {
       await ctx.reply("❌ Kanal topilmadi yoki botda ruxsat yo'q!");
       logger.error('Error adding channel:', error);
     }
   }
 
-  private async processChannelRemoval(ctx: Context, username: string, session: AdminSession): Promise<void> {
+  private async processChannelRemoval(
+    ctx: Context,
+    username: string,
+    session: AdminSession,
+  ): Promise<void> {
     const cleanUsername = username.replace('@', '').trim();
 
     const channel = await this.databaseService.requiredChannel.findFirst({
@@ -380,13 +493,25 @@ export class BotService implements OnModuleInit {
 
     await ctx.reply(
       `✅ Kanal muvaffaqiyatli o'chirildi!\n\n📺 Kanal: @${cleanUsername}`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML' },
     );
 
-    setTimeout(() => this.safeReply(ctx, '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('channel')), 1000);
+    setTimeout(
+      () =>
+        this.safeReply(
+          ctx,
+          '📺 <b>Kanal boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('channel'),
+        ),
+      1000,
+    );
   }
 
-  private async processNewAdminId(ctx: Context, adminIdText: string, session: AdminSession): Promise<void> {
+  private async processNewAdminId(
+    ctx: Context,
+    adminIdText: string,
+    session: AdminSession,
+  ): Promise<void> {
     const newAdminId = parseInt(adminIdText.trim());
 
     if (isNaN(newAdminId)) {
@@ -411,13 +536,25 @@ export class BotService implements OnModuleInit {
 
     await ctx.reply(
       `✅ Yangi admin muvaffaqiyatli qo'shildi!\n\n👤 Admin ID: <code>${newAdminId}</code>`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML' },
     );
 
-    setTimeout(() => this.safeReply(ctx, '👥 <b>Admin boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('admin')), 1000);
+    setTimeout(
+      () =>
+        this.safeReply(
+          ctx,
+          '👥 <b>Admin boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('admin'),
+        ),
+      1000,
+    );
   }
 
-  private async processMovieCode(ctx: Context, code: string, session: AdminSession): Promise<void> {
+  private async processMovieCode(
+    ctx: Context,
+    code: string,
+    session: AdminSession,
+  ): Promise<void> {
     const pendingMovie = session.pendingMovie;
     if (!pendingMovie) {
       await ctx.reply("❌ Kutilayotgan kino ma'lumoti topilmadi!");
@@ -434,14 +571,19 @@ export class BotService implements OnModuleInit {
     });
 
     if (existingMovie) {
-      await ctx.reply(`❌ ${code} kodi allaqachon ishlatilgan! Boshqa kod kiriting.`);
+      await ctx.reply(
+        `❌ ${code} kodi allaqachon ishlatilgan! Boshqa kod kiriting.`,
+      );
       return;
     }
 
     await this.saveMovie(ctx, pendingMovie, code, session);
   }
 
-  private async processMovieUpload(ctx: Context, session: AdminSession): Promise<void> {
+  private async processMovieUpload(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
     const msg = ctx.message;
     let fileId = '';
     let title = '';
@@ -467,7 +609,7 @@ export class BotService implements OnModuleInit {
 
     await ctx.reply(
       `🎬 Kino: <b>${title}</b>\n\n📝 Iltimos bu kino uchun 1-4 raqamli kod yuboring:`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML' },
     );
   }
 
@@ -487,13 +629,26 @@ export class BotService implements OnModuleInit {
 
     await ctx.reply(
       `✅ Kino muvaffaqiyatli o'chirildi!\n\n🎬 Nomi: <b>${movie.title}</b>\n🔢 Kod: <b>${code}</b>`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML' },
     );
 
-    setTimeout(() => this.safeReply(ctx, '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('movie')), 1000);
+    setTimeout(
+      () =>
+        this.safeReply(
+          ctx,
+          '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('movie'),
+        ),
+      1000,
+    );
   }
 
-  private async saveMovie(ctx: Context, pendingMovie: PendingMovie, code: string, session: AdminSession): Promise<void> {
+  private async saveMovie(
+    ctx: Context,
+    pendingMovie: PendingMovie,
+    code: string,
+    session: AdminSession,
+  ): Promise<void> {
     try {
       const userId = ctx.from?.id;
 
@@ -521,12 +676,20 @@ export class BotService implements OnModuleInit {
 
       await ctx.reply(
         `✅ Kino muvaffaqiyatli saqlandi!\n\n🎬 Nomi: <b>${pendingMovie.title}</b>\n🔢 Kod: <b>${code}</b>`,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML' },
       );
 
       logger.info(`Movie saved: ${movie.title} with code ${movie.code}`);
 
-      setTimeout(() => this.safeReply(ctx, '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:', this.getMenuKeyboard('movie')), 1000);
+      setTimeout(
+        () =>
+          this.safeReply(
+            ctx,
+            '🎬 <b>Kino boshqaruvi</b>\n\nKerakli amalni tanlang:',
+            this.getMenuKeyboard('movie'),
+          ),
+        1000,
+      );
     } catch (error) {
       await ctx.reply('❌ Kinoni saqlashda xatolik yuz berdi!');
       logger.error('Error saving movie:', error);
@@ -589,6 +752,7 @@ export class BotService implements OnModuleInit {
       await ctx.replyWithVideo(movie.fileId, {
         caption: `🎬 <b>${movie.title}</b>\n\n🤖 @kinolar_hub_bot`,
         parse_mode: 'HTML',
+        protect_content: true,
       });
 
       await this.databaseService.request.create({
@@ -598,7 +762,9 @@ export class BotService implements OnModuleInit {
         },
       });
 
-      logger.info(`Movie sent: ${movie.title} (${movie.code}) to user ${ctx.from?.id}`);
+      logger.info(
+        `Movie sent: ${movie.title} (${movie.code}) to user ${ctx.from?.id}`,
+      );
     } catch (error) {
       await ctx.reply('❌ Kinoni yuborishda xatolik yuz berdi!');
       logger.error('Error sending movie:', error);
@@ -627,21 +793,20 @@ export class BotService implements OnModuleInit {
     if (movie) {
       await this.sendMovie(ctx, movie);
     } else {
-      await ctx.reply('❌ Bu kod bilan kino topilmadi. Iltimos boshqa kod kiriting.');
+      await ctx.reply(
+        '❌ Bu kod bilan kino topilmadi. Iltimos boshqa kod kiriting.',
+      );
     }
-  }
-
-  registerBroadcastCommand(handler: (ctx: Context) => Promise<void>): void {
-    this.bot.command('broadcast', handler);
   }
 
   private async checkChannelSubscriptions(ctx: Context): Promise<boolean> {
     const userId = ctx.from?.id;
     if (!userId) return false;
 
-    const requiredChannels = await this.databaseService.requiredChannel.findMany({
-      where: { enabled: 1 },
-    });
+    const requiredChannels =
+      await this.databaseService.requiredChannel.findMany({
+        where: { enabled: 1 },
+      });
 
     if (requiredChannels.length === 0) return true;
 
@@ -649,29 +814,44 @@ export class BotService implements OnModuleInit {
 
     for (const channel of requiredChannels) {
       try {
-        const member = await this.bot.api.getChatMember(channel.channelId, userId);
+        const member = await this.bot.api.getChatMember(
+          channel.channelId,
+          userId,
+        );
 
         // Check if user is NOT subscribed (only left or kicked are truly unsubscribed)
         if (member.status === 'left' || member.status === 'kicked') {
           unsubscribedChannels.push(channel);
         }
         // All other statuses (creator, administrator, member, restricted) are considered subscribed
-
       } catch (error) {
-        logger.error(`Error checking membership for channel ${channel.username}:`, error);
+        logger.error(
+          `Error checking membership for channel ${channel.username}:`,
+          error,
+        );
 
         // More specific error handling
-        if (error.error_code === 400 && error.description?.includes('chat not found')) {
-          logger.error(`Channel ${channel.username} not found - may need to be removed from database`);
+        if (
+          error.error_code === 400 &&
+          error.description?.includes('chat not found')
+        ) {
+          logger.error(
+            `Channel ${channel.username} not found - may need to be removed from database`,
+          );
           // Still treat as unsubscribed to prevent access
           unsubscribedChannels.push(channel);
-        } else if (error.error_code === 400 && error.description?.includes('user not found')) {
+        } else if (
+          error.error_code === 400 &&
+          error.description?.includes('user not found')
+        ) {
           // User might have privacy settings - treat as unsubscribed for safety
           unsubscribedChannels.push(channel);
         } else {
           // For other errors (network, rate limit, etc.), give user benefit of doubt
           // or implement retry logic
-          logger.warn(`API error checking subscription for ${channel.username}, skipping check`);
+          logger.warn(
+            `API error checking subscription for ${channel.username}, skipping check`,
+          );
           // Optionally: unsubscribedChannels.push(channel); for stricter checking
         }
       }
@@ -685,16 +865,22 @@ export class BotService implements OnModuleInit {
     return true;
   }
 
-  private async showChannelSubscriptionMessage(ctx: Context, channels: any[]): Promise<void> {
+  private async showChannelSubscriptionMessage(
+    ctx: Context,
+    channels: any[],
+  ): Promise<void> {
     const keyboard = new InlineKeyboard();
 
     channels.forEach((channel, index) => {
-      keyboard.url(`${index + 1} - kanal`, `https://t.me/${channel.username}`).row();
+      keyboard
+        .url(`${index + 1} - kanal`, `https://t.me/${channel.username}`)
+        .row();
     });
 
     keyboard.text('✅ Tasdiqlash', 'check_subscription');
 
-    const message = "❌ Kechirasiz botimizdan foydalanishdan oldin ushbu kanallarga a'zo bo'lishingiz kerak.\n\nQuyidagi kanallarga a'zo bo'ling:";
+    const message =
+      "❌ Kechirasiz botimizdan foydalanishdan oldin ushbu kanallarga a'zo bo'lishingiz kerak.\n\nQuyidagi kanallarga a'zo bo'ling:";
 
     await ctx.reply(message, { reply_markup: keyboard });
   }
