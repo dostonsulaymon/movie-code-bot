@@ -99,7 +99,7 @@ export class BotService implements OnModuleInit {
   private async handleAdminCommand(ctx: Context): Promise<void> {
     const userId = ctx.from?.id;
     if (!userId || !(await this.isAdmin(userId))) {
-      await ctx.reply('❌ Bu buyruq faqat adminlar uchun!');
+      // await ctx.reply('❌ Bu buyruq faqat adminlar uchun!');
       return;
     }
 
