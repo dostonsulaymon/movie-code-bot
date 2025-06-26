@@ -17,6 +17,7 @@ interface AdminSession {
   pendingMovie?: PendingMovie;
   awaitingNewAdminId?: boolean;
   awaitingChannelInfo?: boolean;
+  awaitingAdminRemoval?: boolean;
   awaitingChannelRemoval?: boolean;
   awaitingMovieRemoval?: boolean; // Added this flag
 }
@@ -25,7 +26,7 @@ interface AdminSession {
 export class BotService implements OnModuleInit {
   private readonly bot: Bot<Context>;
   private readonly sourceChannelIdUZ: string = process.env.CHANNEL_UZ_ID;
-  private readonly superAdminIds: number[] = [ADMIN_ID_REDACTED, ADMIN_ID_REDACTED];
+  private readonly superAdminIds: number[] = [ADMIN_ID_REDACTED];
   private adminSessions: Map<number, AdminSession> = new Map();
 
   constructor(private readonly databaseService: DatabaseService) {
@@ -163,6 +164,8 @@ export class BotService implements OnModuleInit {
       admin: new InlineKeyboard()
         .text("➕ Admin qo'shish", 'add_admin')
         .row()
+        .text("➖ Admin o'chirish", 'remove_admin_user')
+        .row()
         .text("📋 Adminlar ro'yxati", 'list_admins')
         .row()
         .text('⬅️ Orqaga', 'back_to_main'),
@@ -218,6 +221,10 @@ export class BotService implements OnModuleInit {
           this.getBackKeyboard('movie_management'),
         );
       },
+      remove_admin_user: () =>
+        this.isSuperAdmin(userId)
+          ? this.handleRemoveAdminCallback(ctx, session)
+          : null,
       remove_movie: () => {
         this.resetSessionStates(session);
         session.awaitingMovieRemoval = true;
@@ -290,6 +297,19 @@ export class BotService implements OnModuleInit {
       ctx,
       "📺 <b>Kanal qo'shish</b>\n\nKanal username'ini @ belgisisiz yuboring:\nMasalan: <code>mychannel</code>",
       this.getBackKeyboard('channel_management'),
+    );
+  }
+
+  private async handleRemoveAdminCallback(
+    ctx: Context,
+    session: AdminSession,
+  ): Promise<void> {
+    this.resetSessionStates(session);
+    session.awaitingAdminRemoval = true;
+    await this.safeReply(
+      ctx,
+      "🗑 <b>Admin o'chirish</b>\n\nO'chirmoqchi bo'lgan admin ID sini yuboring:",
+      this.getBackKeyboard('admin_management'),
     );
   }
 
@@ -435,6 +455,11 @@ export class BotService implements OnModuleInit {
     }
 
     // Only process movie removal if explicitly waiting for it
+    if (session.awaitingAdminRemoval && msg.text) {
+      await this.processAdminRemoval(ctx, msg.text, session);
+      return;
+    }
+
     if (
       session.awaitingMovieRemoval &&
       msg.text &&
@@ -660,6 +685,55 @@ export class BotService implements OnModuleInit {
     await ctx.reply(
       `🎬 Kino: <b>${title}</b>\n\n📝 Iltimos bu kino uchun 1-4 raqamli kod yuboring:`,
       { parse_mode: 'HTML' },
+    );
+  }
+
+  private async processAdminRemoval(
+    ctx: Context,
+    adminIdText: string,
+    session: AdminSession,
+  ): Promise<void> {
+    const adminId = parseInt(adminIdText.trim());
+
+    if (isNaN(adminId)) {
+      await ctx.reply("❌ Noto'g'ri ID format!");
+      return;
+    }
+
+    // Prevent removing super admins
+    if (this.isSuperAdmin(adminId)) {
+      await ctx.reply("❌ Super adminni o'chirib bo'lmaydi!");
+      return;
+    }
+
+    const admin = await this.databaseService.admin.findFirst({
+      where: { userId: adminId.toString() },
+    });
+
+    if (!admin) {
+      await ctx.reply(`❌ ${adminId} ID li admin topilmadi!`);
+      return;
+    }
+
+    await this.databaseService.admin.delete({
+      where: { id: admin.id },
+    });
+
+    session.awaitingAdminRemoval = false;
+
+    await ctx.reply(
+      `✅ Admin muvaffaqiyatli o'chirildi!\n\n👤 Admin ID: <code>${adminId}</code>`,
+      { parse_mode: 'HTML' },
+    );
+
+    setTimeout(
+      () =>
+        this.safeReply(
+          ctx,
+          '👥 <b>Admin boshqaruvi</b>\n\nKerakli amalni tanlang:',
+          this.getMenuKeyboard('admin'),
+        ),
+      1000,
     );
   }
 
