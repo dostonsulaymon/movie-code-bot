@@ -26,7 +26,7 @@ interface AdminSession {
 export class BotService implements OnModuleInit {
   private readonly bot: Bot<Context>;
   private readonly sourceChannelIdUZ: string = process.env.CHANNEL_UZ_ID;
-  private readonly superAdminIds: number[] = [ADMIN_ID_REDACTED];
+  private readonly superAdminIds: number[] = [ADMIN_ID_REDACTED, ADMIN_ID_REDACTED];
   private adminSessions: Map<number, AdminSession> = new Map();
 
   constructor(private readonly databaseService: DatabaseService) {
