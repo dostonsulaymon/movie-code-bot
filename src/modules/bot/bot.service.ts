@@ -885,7 +885,7 @@ export class BotService implements OnModuleInit {
     let message = `👋 Assalomu alaykum, <b>${firstName}</b>! Botimizga xush kelibsiz!\n\n`;
 
     if (movies.length > 0) {
-      message += `🎬 <b>Mavjud kinolar:</b>\n\n`;
+      message += `🎬 <b>Bizdagi top 10 kinolar:</b>\n\n`;
 
       movies.forEach((movie, index) => {
         message += `${index + 1}. <b>${movie.title}</b> - <code>${movie.code}</code>\n`;
