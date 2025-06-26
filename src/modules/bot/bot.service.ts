@@ -31,6 +31,8 @@ export class BotService implements OnModuleInit {
 
   constructor(private readonly databaseService: DatabaseService) {
     this.bot = new Bot<Context>(process.env.BOT_TOKEN || '');
+    this.setupMiddleware();
+
   }
 
   getBot(): Bot<Context> {
@@ -51,6 +53,17 @@ export class BotService implements OnModuleInit {
     this.bot.command('admin', this.handleAdminCommand.bind(this));
     this.bot.on('callback_query', this.handleCallbackQuery.bind(this));
     this.bot.on('message', this.handleMessage.bind(this));
+  }
+
+  private setupMiddleware(): void {
+    this.bot.use((ctx, next) => {
+      logger.info(`user chatId: ${ctx.from?.id}`);
+      return next();
+    })
+
+    this.bot.catch((err) => {
+      logger.error('Bot error:', err);
+    });
   }
 
   private async handleStart(ctx: Context): Promise<void> {
