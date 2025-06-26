@@ -872,7 +872,29 @@ export class BotService implements OnModuleInit {
 
   private async showIntro(ctx: Context) {
     const firstName = ctx.from.first_name;
-    const message = `👋 Assalomu alaykum, <b>${firstName}</b>! Botimizga xush kelibsiz!\n\n📥 Davom etish uchun kino kodini yuboring.`;
+
+    const movies = await this.databaseService.movie.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        code: true,
+        title: true
+      }
+    });
+
+    let message = `👋 Assalomu alaykum, <b>${firstName}</b>! Botimizga xush kelibsiz!\n\n`;
+
+    if (movies.length > 0) {
+      message += `🎬 <b>Mavjud kinolar:</b>\n\n`;
+
+      movies.forEach((movie, index) => {
+        message += `${index + 1}. <b>${movie.title}</b> - <code>${movie.code}</code>\n`;
+      });
+
+      message += `\n📥 Kino kodini yuboring yoki yuqoridagi kodlardan birini tanlang.`;
+    } else {
+      message += `📥 Davom etish uchun kino kodini yuboring.`;
+    }
 
     await ctx.reply(message, { parse_mode: 'HTML' });
   }
