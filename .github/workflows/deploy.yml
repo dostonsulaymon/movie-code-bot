@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Triggers on push to main branch
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run tests (optional)
+        run: npm test
+        continue-on-error: true  # Won't fail deployment if tests fail
+
+  deploy:
+    name: Deploy to Server
+    needs: build  # Only runs if build succeeds
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd REDACTED_PATH
+            
+            echo "📦 Pulling latest code..."
+            git pull origin main
+            
+            echo "📥 Installing dependencies..."
+            npm ci --production
+            
+            echo "🔧 Generating Prisma Client..."
+            npx prisma generate
+            
+            echo "🏗️ Building application..."
+            npm run build
+            
+            echo "🔄 Restarting PM2 application..."
+            pm2 reload github-movie || pm2 start dist/main.js --name github-movie
+            
+            echo "💾 Saving PM2 process list..."
+            pm2 save
+            
+            echo "✅ Deployment completed successfully!"
+            pm2 status github-movie
