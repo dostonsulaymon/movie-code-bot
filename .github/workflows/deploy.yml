@@ -54,7 +54,7 @@ jobs:
             git pull origin main
             
             echo "📥 Installing dependencies..."
-            npm install 
+            npm ci --production 
             
             echo "🔧 Generating Prisma Client..."
             npx prisma generate
