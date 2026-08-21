@@ -4,3 +4,11 @@ node_modules
 /generated/prisma
 /dist
 
+
+# Environment variables — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Local media
+/videos

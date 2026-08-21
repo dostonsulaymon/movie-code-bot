@@ -48,7 +48,7 @@ jobs:
           password: ${{ secrets.SERVER_SECRET }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd REDACTED_PATH
+            cd ${{ secrets.DEPLOY_PATH }}
             
             echo "📦 Pulling latest code..."
             git pull origin main

@@ -11,7 +11,11 @@ import { DatabaseService } from '../../database/database.service';
 export class BroadcastService {
   private bot: Bot<Context>;
   // private readonly adminIds: number[];
-  public adminIds: number[] = [ADMIN_ID_REDACTED, ADMIN_ID_REDACTED]; // Super admins
+  // Comma-separated Telegram user IDs. Empty means no super admins.
+  public adminIds: number[] = (process.env.SUPER_ADMIN_IDS ?? '')
+    .split(',')
+    .map((id) => Number(id.trim()))
+    .filter((id) => Number.isInteger(id) && id !== 0);
 
   constructor(
     private botService: BotService,

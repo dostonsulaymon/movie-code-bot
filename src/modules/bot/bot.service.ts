@@ -26,7 +26,11 @@ interface AdminSession {
 export class BotService implements OnModuleInit {
   private readonly bot: Bot<Context>;
   private readonly sourceChannelIdUZ: string = process.env.CHANNEL_UZ_ID;
-  private readonly superAdminIds: number[] = [ADMIN_ID_REDACTED, ADMIN_ID_REDACTED];
+  // Comma-separated Telegram user IDs. Empty means no super admins.
+  private readonly superAdminIds: number[] = (process.env.SUPER_ADMIN_IDS ?? '')
+    .split(',')
+    .map((id) => Number(id.trim()))
+    .filter((id) => Number.isInteger(id) && id !== 0);
   private adminSessions: Map<number, AdminSession> = new Map();
 
   constructor(private readonly databaseService: DatabaseService) {
